@@ -18,7 +18,6 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -31,9 +30,7 @@ public class MapsActivity extends FragmentActivity implements
 
     private static final String TAG = "FloatingBar/MainActivity";
 
-    // Update frequency in milliseconds
     private static final long UPDATE_INTERVAL = 3000;
-    // A fast frequency ceiling in milliseconds
     private static final long FASTEST_INTERVAL = 1000;
 
     /*
@@ -47,24 +44,27 @@ public class MapsActivity extends FragmentActivity implements
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
 
-    private Marker mCurrentPosMarker;
     private Marker mDestinationMarker;
+    private LatLng mDestination;
 
     private MenuItem mMenuStart;
     private MenuItem mMenuStop;
 
     @Override public void onConnected(Bundle bundle) {
-        // Global variable to hold the current location
-        Location mCurrentLocation;
-        mCurrentLocation = mLocationClient.getLastLocation();
-        CameraPosition cameraPosition = new CameraPosition.Builder()
-                .target(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()))
-                .zoom(17)                   // Sets the zoom
-                .build();                   // Creates a CameraPosition from the builder
-        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
-
         // TODO: they recommend wrapping a boolean here to disable updates if user requests
         mLocationClient.requestLocationUpdates(mLocationRequest, this);
+
+        Location currentLocation = mLocationClient.getLastLocation();
+        if (currentLocation != null) {
+            LatLng latLng = new LatLng(currentLocation.getLatitude(),
+                    currentLocation.getLongitude());
+
+            // Showing the current location in Google Map
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+
+            // Zoom in the Google Map
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(25));
+        }
     }
 
     @Override public void onDisconnected() {
@@ -102,24 +102,7 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override public void onLocationChanged(Location location) {
-        if(mCurrentPosMarker != null){
-            mCurrentPosMarker.remove();
-        }
-
-        // Getting latitude of the current location
-        double latitude = location.getLatitude();
-
-        // Getting longitude of the current location
-        double longitude = location.getLongitude();
-
-        // Creating a LatLng object for the current location
-        LatLng latLng = new LatLng(latitude, longitude);
-        mCurrentPosMarker = mMap.addMarker(new MarkerOptions().position(latLng));
-        // Showing the current location in Google Map
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-
-        // Zoom in the Google Map
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+        // Not used
     }
 
     @Override public void onMapClick(LatLng latLng) {
@@ -127,10 +110,15 @@ public class MapsActivity extends FragmentActivity implements
             mDestinationMarker.remove();
         }
         mDestinationMarker = mMap.addMarker(new MarkerOptions().position(latLng));
+        mDestination = latLng;
+
+        // If the service is already started, update it with an event
+        DestinationChangedEvent event = new DestinationChangedEvent(latLng.latitude,
+                latLng.longitude);
+        BusProvider.getInstance().post(event);
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_maps);
@@ -138,22 +126,16 @@ public class MapsActivity extends FragmentActivity implements
 
         mLocationClient = new LocationClient(this, this, this);
 
-        // Create the LocationRequest object
         mLocationRequest = LocationRequest.create();
-        // Use high accuracy
-        mLocationRequest.setPriority(
-                LocationRequest.PRIORITY_HIGH_ACCURACY);
-        // Set the update interval to 5 seconds
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         mLocationRequest.setInterval(UPDATE_INTERVAL);
-        // Set the fastest update interval to 1 second
         mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
 
         // TODO: check if play services available:
         // https://developer.android.com/training/location/receive-location-updates.html
     }
 
-    @Override
-    protected void onResume() {
+    @Override protected void onResume() {
         super.onResume();
         setUpMapIfNeeded();
     }
@@ -161,8 +143,7 @@ public class MapsActivity extends FragmentActivity implements
     /*
      * Called when the Activity becomes visible.
      */
-    @Override
-    protected void onStart() {
+    @Override protected void onStart() {
         super.onStart();
         // Connect the client.
         mLocationClient.connect();
@@ -171,8 +152,7 @@ public class MapsActivity extends FragmentActivity implements
     /*
      * Called when the Activity is no longer visible.
      */
-    @Override
-    protected void onStop() {
+    @Override protected void onStop() {
         if (mLocationClient.isConnected()) {
             mLocationClient.removeLocationUpdates(this);
         }
@@ -183,8 +163,7 @@ public class MapsActivity extends FragmentActivity implements
         super.onStop();
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
+    @Override public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu items for use in the action bar
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_activity_actions, menu);
@@ -196,14 +175,21 @@ public class MapsActivity extends FragmentActivity implements
         return super.onCreateOptionsMenu(menu);
     }
 
-    @Override
-    public boolean onMenuItemSelected(int featureId, MenuItem item) {
+    @Override public boolean onMenuItemSelected(int featureId, MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_start:
-                // TODO: check if maps are ready
-                startService(new Intent(this, ProgressBarService.class));
-                mMenuStart.setVisible(false);
-                mMenuStop.setVisible(true);
+                if (mLocationClient.isConnected()) {
+                    if (mDestination != null) {
+                        startProgressBarService();
+                        mMenuStart.setVisible(false);
+                        mMenuStop.setVisible(true);
+                    } else {
+                        Toast.makeText(this, "First tap the map to set a location",
+                                Toast.LENGTH_LONG).show();
+                    }
+                } else {
+                    Toast.makeText(this, "Location unavailable", Toast.LENGTH_SHORT).show();
+                }
                 break;
 
             case R.id.action_stop:
@@ -251,6 +237,20 @@ public class MapsActivity extends FragmentActivity implements
      * This should only be called once and when we are sure that {@link #mMap} is not null.
      */
     private void setUpMap() {
+        mMap.setMyLocationEnabled(true);
         mMap.setOnMapClickListener(this);
+    }
+
+    private void startProgressBarService() {
+        Location currentLocation = mLocationClient.getLastLocation();
+
+        Intent intent = new Intent(this, ProgressBarService.class);
+        intent.putExtra(ProgressBarService.STARTING_LAT, currentLocation.getLatitude());
+        intent.putExtra(ProgressBarService.STARTING_LON, currentLocation.getLongitude());
+
+        intent.putExtra(ProgressBarService.DESTINATION_LAT, mDestination.latitude);
+        intent.putExtra(ProgressBarService.DESTINATION_LON, mDestination.longitude);
+
+        startService(intent);
     }
 }
