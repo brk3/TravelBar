@@ -26,7 +26,8 @@ import com.google.android.gms.maps.model.MarkerOptions;
 public class MapsActivity extends FragmentActivity implements
         GooglePlayServicesClient.ConnectionCallbacks,
         GooglePlayServicesClient.OnConnectionFailedListener,
-        LocationListener {
+        LocationListener,
+        GoogleMap.OnMapClickListener {
 
     private static final String TAG = "FloatingBar/MainActivity";
 
@@ -46,7 +47,8 @@ public class MapsActivity extends FragmentActivity implements
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
 
-    private Marker now;
+    private Marker mCurrentPosMarker;
+    private Marker mDestinationMarker;
 
     private MenuItem mMenuStart;
     private MenuItem mMenuStop;
@@ -100,8 +102,8 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override public void onLocationChanged(Location location) {
-        if(now != null){
-            now.remove();
+        if(mCurrentPosMarker != null){
+            mCurrentPosMarker.remove();
         }
 
         // Getting latitude of the current location
@@ -112,12 +114,19 @@ public class MapsActivity extends FragmentActivity implements
 
         // Creating a LatLng object for the current location
         LatLng latLng = new LatLng(latitude, longitude);
-        now = mMap.addMarker(new MarkerOptions().position(latLng));
+        mCurrentPosMarker = mMap.addMarker(new MarkerOptions().position(latLng));
         // Showing the current location in Google Map
         mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
 
         // Zoom in the Google Map
         mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+    }
+
+    @Override public void onMapClick(LatLng latLng) {
+        if (mDestinationMarker != null) {
+            mDestinationMarker.remove();
+        }
+        mDestinationMarker = mMap.addMarker(new MarkerOptions().position(latLng));
     }
 
     @Override
@@ -242,6 +251,6 @@ public class MapsActivity extends FragmentActivity implements
      * This should only be called once and when we are sure that {@link #mMap} is not null.
      */
     private void setUpMap() {
-        mMap.addMarker(new MarkerOptions().position(new LatLng(0, 0)).title("Marker"));
+        mMap.setOnMapClickListener(this);
     }
 }
