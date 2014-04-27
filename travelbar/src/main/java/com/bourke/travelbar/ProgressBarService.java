@@ -1,5 +1,6 @@
 package com.bourke.travelbar;
 
+import android.animation.ObjectAnimator;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -17,6 +18,7 @@ import android.support.v4.app.TaskStackBuilder;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.WindowManager;
+import android.view.animation.LinearInterpolator;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -80,7 +82,6 @@ public class ProgressBarService extends Service implements
         mProgressBar = new ProgressBar(getBaseContext(), null,
                 android.R.attr.progressBarStyleHorizontal);
         mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
-        mProgressBar.setProgress(mProgressStatus);
 
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -187,7 +188,12 @@ public class ProgressBarService extends Service implements
 
         mProgressStatus = (int) ((distanceRemaining / mTotalDistance) * 100);
         mProgressStatus = Math.abs(mProgressStatus - 100);
-        mProgressBar.setProgress(mProgressStatus);
+
+        // Update the progress bar smoothly using ObjectAnimator
+        ObjectAnimator animation = ObjectAnimator.ofInt(mProgressBar, "progress", mProgressStatus);
+        animation.setDuration(500); // 0.5 second
+        animation.setInterpolator(new LinearInterpolator());
+        animation.start();
 
         if (mProgressStatus >= 90) {
             popArrivalNotification();
