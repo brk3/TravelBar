@@ -58,14 +58,16 @@ public class MapsActivity extends FragmentActivity implements
         mLocationClient.requestLocationUpdates(mLocationRequest, this);
 
         Location currentLocation = mLocationClient.getLastLocation();
-        LatLng latLng = new LatLng(currentLocation.getLatitude(),
-                currentLocation.getLongitude());
+        if (currentLocation != null) {
+            LatLng latLng = new LatLng(currentLocation.getLatitude(),
+                    currentLocation.getLongitude());
 
-        // Showing the current location in Google Map
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+            // Showing the current location in Google Map
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
 
-        // Zoom in the Google Map
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(10));
+            // Zoom in the Google Map
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(10));
+        }
     }
 
     @Override public void onDisconnected() {

@@ -1,6 +1,10 @@
 package com.bourke.travelbar;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
@@ -8,6 +12,8 @@ import android.graphics.PorterDuff;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.TaskStackBuilder;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.WindowManager;
@@ -38,8 +44,6 @@ public class ProgressBarService extends Service implements
 
     private int mProgressStatus = 0;
 
-    private final int HOLO_GREEN = Color.rgb(153, 204, 0);
-
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
 
@@ -57,6 +61,8 @@ public class ProgressBarService extends Service implements
             "com.bourke.travelbar.ProgressBarService.DESTINATION_LAT";
     public static final String DESTINATION_LON =
             "com.bourke.travelbar.ProgressBarService.DESTINATION_LON";
+
+    public static final int NOTIFICATION_ARRIVED = 0;
 
     @Override public IBinder onBind(Intent intent) {
         // Not used
@@ -78,7 +84,7 @@ public class ProgressBarService extends Service implements
 
         mProgressBar = new ProgressBar(getBaseContext(), null,
                 android.R.attr.progressBarStyleHorizontal);
-        mProgressBar.getProgressDrawable().setColorFilter(HOLO_GREEN, PorterDuff.Mode.SRC_IN);
+        mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
         mProgressBar.setProgress(mProgressStatus);
 
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
@@ -182,12 +188,15 @@ public class ProgressBarService extends Service implements
         mProgressStatus = Math.abs(mProgressStatus - 100);
         mProgressBar.setProgress(mProgressStatus);
 
-        if (mProgressStatus >= 80) {
+        if (mProgressStatus >= 90) {
+            popArrivalNotification();
+            mLocationClient.disconnect();
+        } else if (mProgressStatus >= 80) {
             mProgressBar.getProgressDrawable().setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN);
         } else if (mProgressStatus >= 60) {
             mProgressBar.getProgressDrawable().setColorFilter(Color.YELLOW, PorterDuff.Mode.SRC_IN);
         } else {
-            mProgressBar.getProgressDrawable().setColorFilter(HOLO_GREEN, PorterDuff.Mode.SRC_IN);
+            mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
         }
 
         Log.d(TAG, "Start: " + mStartingPoint);
@@ -195,5 +204,35 @@ public class ProgressBarService extends Service implements
         Log.d(TAG, "Total distance (metres): " + mTotalDistance);
         Log.d(TAG, "Distance remaining (meters): " + distanceRemaining);
         Log.d(TAG, "Distance complete (percentage): " + mProgressStatus);
+    }
+
+    private void popArrivalNotification() {
+        NotificationCompat.Builder mBuilder =
+                new NotificationCompat.Builder(this)
+                        .setSmallIcon(R.drawable.ic_notify)
+                        .setContentTitle("Yeehaw!")
+                        .setContentText("You are arriving at your destination")
+                        .setAutoCancel(true)
+                        .setPriority(Notification.PRIORITY_HIGH)
+                        .setDefaults(Notification.DEFAULT_ALL);
+        // Creates an explicit intent for an Activity in your app
+        Intent resultIntent = new Intent(this, MapsActivity.class);
+
+        // The stack builder object will contain an artificial back stack for the
+        // started Activity.
+        // This ensures that navigating backward from the Activity leads out of
+        // your application to the Home screen.
+        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+        // Adds the back stack for the Intent (but not the Intent itself)
+        stackBuilder.addParentStack(MapsActivity.class);
+        // Adds the Intent that starts the Activity to the top of the stack
+        stackBuilder.addNextIntent(resultIntent);
+        PendingIntent resultPendingIntent =
+                stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
+        mBuilder.setContentIntent(resultPendingIntent);
+        NotificationManager mNotificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        // mId allows you to update the notification later on.
+        mNotificationManager.notify(NOTIFICATION_ARRIVED, mBuilder.build());
     }
 }
