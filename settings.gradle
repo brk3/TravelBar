@@ -1,1 +1,1 @@
-include ':floatingbar'
+include 'travelbar'
