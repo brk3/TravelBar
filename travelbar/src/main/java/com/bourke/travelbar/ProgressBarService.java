@@ -34,11 +34,6 @@ public class ProgressBarService extends Service implements
 
     private static final String TAG = "TravelBar/ProgressBarService";
 
-    // Update frequency in milliseconds
-    private static final long UPDATE_INTERVAL = 3000;
-    // A fast frequency ceiling in milliseconds
-    private static final long FASTEST_INTERVAL = 1000;
-
     private WindowManager windowManager;
     private ProgressBar mProgressBar;
 
@@ -79,8 +74,8 @@ public class ProgressBarService extends Service implements
 
         mLocationRequest = LocationRequest.create();
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(UPDATE_INTERVAL);
-        mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
+        mLocationRequest.setInterval(Constants.UPDATE_INTERVAL);
+        mLocationRequest.setFastestInterval(Constants.FASTEST_INTERVAL);
 
         mProgressBar = new ProgressBar(getBaseContext(), null,
                 android.R.attr.progressBarStyleHorizontal);
@@ -112,8 +107,10 @@ public class ProgressBarService extends Service implements
             mStartingPoint.setLatitude(startingLat);
             mStartingPoint.setLongitude(startingLon);
 
-            Log.d(TAG, String.format("Received starting location: %f, %f", startingLat,
-                    startingLon));
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, String.format("Received starting location: %f, %f", startingLat,
+                        startingLon));
+            }
         } else {
             throw new IllegalStateException("Starting point required to start ProgressBarService");
         }
@@ -127,8 +124,10 @@ public class ProgressBarService extends Service implements
             mDestination.setLatitude(destinationLat);
             mDestination.setLongitude(destinationLon);
 
-            Log.d(TAG, String.format("Received destination: %f, %f", destinationLat,
-                    destinationLon));
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, String.format("Received destination: %f, %f", destinationLat,
+                        destinationLon));
+            }
         } else {
             throw new IllegalStateException("Destination required to start ProgressBarService");
         }
@@ -171,7 +170,9 @@ public class ProgressBarService extends Service implements
     }
 
     @Subscribe public void destinationChanged(DestinationChangedEvent event) {
-        Log.d(TAG, String.format("Destination changed to: %f,%f", event.lat, event.lon));
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, String.format("Destination changed to: %f,%f", event.lat, event.lon));
+        }
 
         mDestination.setLatitude(event.lat);
         mDestination.setLongitude(event.lon);
@@ -199,11 +200,13 @@ public class ProgressBarService extends Service implements
             mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
         }
 
-        Log.d(TAG, "Start: " + mStartingPoint);
-        Log.d(TAG, "Destination: " + mDestination);
-        Log.d(TAG, "Total distance (metres): " + mTotalDistance);
-        Log.d(TAG, "Distance remaining (meters): " + distanceRemaining);
-        Log.d(TAG, "Distance complete (percentage): " + mProgressStatus);
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Start: " + mStartingPoint);
+            Log.d(TAG, "Destination: " + mDestination);
+            Log.d(TAG, "Total distance (metres): " + mTotalDistance);
+            Log.d(TAG, "Distance remaining (meters): " + distanceRemaining);
+            Log.d(TAG, "Distance complete (percentage): " + mProgressStatus);
+        }
     }
 
     private void popArrivalNotification() {

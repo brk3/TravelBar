@@ -33,9 +33,6 @@ public class MapsActivity extends FragmentActivity implements
 
     private static final String TAG = "TravelBar/MapsActivity";
 
-    private static final long UPDATE_INTERVAL = 3000;
-    private static final long FASTEST_INTERVAL = 1000;
-
     /*
      * Define a request code to send to Google Play services
      * This code is returned in Activity.onActivityResult
@@ -131,8 +128,8 @@ public class MapsActivity extends FragmentActivity implements
 
         mLocationRequest = LocationRequest.create();
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(UPDATE_INTERVAL);
-        mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
+        mLocationRequest.setInterval(Constants.UPDATE_INTERVAL);
+        mLocationRequest.setFastestInterval(Constants.FASTEST_INTERVAL);
 
         initActionBar();
 
