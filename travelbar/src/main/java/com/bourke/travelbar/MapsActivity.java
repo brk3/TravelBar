@@ -1,16 +1,18 @@
 package com.bourke.travelbar;
 
+import android.app.ActionBar;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.text.Spannable;
+import android.text.SpannableString;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import com.bourke.travelbar.BusProvider;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.location.LocationClient;
@@ -56,16 +58,14 @@ public class MapsActivity extends FragmentActivity implements
         mLocationClient.requestLocationUpdates(mLocationRequest, this);
 
         Location currentLocation = mLocationClient.getLastLocation();
-        if (currentLocation != null) {
-            LatLng latLng = new LatLng(currentLocation.getLatitude(),
-                    currentLocation.getLongitude());
+        LatLng latLng = new LatLng(currentLocation.getLatitude(),
+                currentLocation.getLongitude());
 
-            // Showing the current location in Google Map
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+        // Showing the current location in Google Map
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
 
-            // Zoom in the Google Map
-            mMap.animateCamera(CameraUpdateFactory.zoomTo(25));
-        }
+        // Zoom in the Google Map
+        mMap.animateCamera(CameraUpdateFactory.zoomTo(10));
     }
 
     @Override public void onDisconnected() {
@@ -131,6 +131,8 @@ public class MapsActivity extends FragmentActivity implements
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         mLocationRequest.setInterval(UPDATE_INTERVAL);
         mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
+
+        initActionBar();
 
         // TODO: check if play services available:
         // https://developer.android.com/training/location/receive-location-updates.html
@@ -253,5 +255,18 @@ public class MapsActivity extends FragmentActivity implements
         intent.putExtra(ProgressBarService.DESTINATION_LON, mDestination.longitude);
 
         startService(intent);
+    }
+
+    private void initActionBar() {
+        SpannableString s = new SpannableString(getString(R.string.app_name));
+        s.setSpan(new TypefaceSpan(this, "Bender-Solid.otf"), 0, s.length(),
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        // Update the action bar title with the TypefaceSpan instance
+        ActionBar actionBar = getActionBar();
+        actionBar.setTitle(s);
+
+        // Set the icon
+        actionBar.setIcon(R.drawable.ic_actionbar);
     }
 }
