@@ -1,8 +1,14 @@
 package com.bourke.travelbar;
 
 import android.app.ActionBar;
+import android.app.LoaderManager;
+import android.app.SearchManager;
+import android.content.Context;
+import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.Loader;
+import android.database.Cursor;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
@@ -11,6 +17,7 @@ import android.text.SpannableString;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.widget.SearchView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -18,6 +25,7 @@ import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -29,17 +37,21 @@ public class MapsActivity extends FragmentActivity implements
         GooglePlayServicesClient.ConnectionCallbacks,
         GooglePlayServicesClient.OnConnectionFailedListener,
         LocationListener,
-        GoogleMap.OnMapClickListener {
+        GoogleMap.OnMapClickListener,
+        LoaderManager.LoaderCallbacks<Cursor> {
 
     private static final String TAG = "TravelBar/MapsActivity";
 
-    /*
-     * Define a request code to send to Google Play services
-     * This code is returned in Activity.onActivityResult
-     */
+    // Define a request code to send to Google Play services. Returned in Activity.onActivityResult
     private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
 
-    private GoogleMap mMap; // Might be null if Google Play services APK is not available.
+    // Started to query ContentProvider for all places matching a string
+    private final static int LOADER_SEARCH = 0;
+
+    // Started to query ContentProvider for details on a specific place
+    private final static int LOADER_DETAILS = 1;
+
+    private GoogleMap mMap;
 
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
@@ -49,6 +61,36 @@ public class MapsActivity extends FragmentActivity implements
 
     private MenuItem mMenuStart;
     private MenuItem mMenuStop;
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
+
+    @Override public Loader<Cursor> onCreateLoader(int arg0, Bundle query) {
+        CursorLoader cLoader = null;
+
+        if (arg0 == LOADER_SEARCH) {
+            cLoader = new CursorLoader(getBaseContext(), PlaceProvider.SEARCH_URI, null, null,
+                    new String[]{query.getString("query")}, null);
+        } else if (arg0 == LOADER_DETAILS) {
+            cLoader = new CursorLoader(getBaseContext(), PlaceProvider.DETAILS_URI, null, null,
+                    new String[]{query.getString("query")}, null);
+        }
+
+        return cLoader;
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> arg0, Cursor c) {
+        showLocations(c);
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> arg0) {
+        // Not used
+    }
 
     @Override public void onConnected(Bundle bundle) {
         // TODO: they recommend wrapping a boolean here to disable updates if user requests
@@ -109,6 +151,8 @@ public class MapsActivity extends FragmentActivity implements
         if (mDestinationMarker != null) {
             mDestinationMarker.remove();
         }
+
+        // TODO: persist for rotate and other state change
         mDestinationMarker = mMap.addMarker(new MarkerOptions().position(latLng));
         mDestination = latLng;
 
@@ -132,6 +176,8 @@ public class MapsActivity extends FragmentActivity implements
         mLocationRequest.setFastestInterval(Constants.FASTEST_INTERVAL);
 
         initActionBar();
+
+        handleIntent(getIntent());
 
         // TODO: check if play services available:
         // https://developer.android.com/training/location/receive-location-updates.html
@@ -173,6 +219,11 @@ public class MapsActivity extends FragmentActivity implements
         mMenuStart = menu.findItem(R.id.action_start);
         mMenuStop = menu.findItem(R.id.action_stop);
         mMenuStop.setVisible(false);
+
+        // Associate searchable configuration with the SearchView
+        SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) menu.findItem(R.id.search).getActionView();
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
 
         return super.onCreateOptionsMenu(menu);
     }
@@ -267,5 +318,45 @@ public class MapsActivity extends FragmentActivity implements
 
         // Set the icon
         actionBar.setIcon(R.drawable.ic_actionbar);
+    }
+
+    private void handleIntent(Intent intent){
+        if (intent.getAction().equals(Intent.ACTION_SEARCH)){
+            doSearch(intent.getStringExtra(SearchManager.QUERY));
+        } else if(intent.getAction().equals(Intent.ACTION_VIEW)){
+            getPlace(intent.getStringExtra(SearchManager.EXTRA_DATA_KEY));
+        }
+    }
+
+    private void doSearch(String query) {
+        Bundle data = new Bundle();
+        data.putString("query", query);
+        getLoaderManager().restartLoader(LOADER_SEARCH, data, this);
+    }
+
+    private void getPlace(String query){
+        Bundle data = new Bundle();
+        data.putString("query", query);
+        getLoaderManager().restartLoader(LOADER_DETAILS, data, this);
+    }
+
+    private void showLocations(Cursor c) {
+        MarkerOptions markerOptions;
+        LatLng position = null;
+
+        mMap.clear();
+
+        while (c.moveToNext()) {
+            markerOptions = new MarkerOptions();
+            position = new LatLng(Double.parseDouble(c.getString(1)),
+                    Double.parseDouble(c.getString(2)));
+            markerOptions.position(position);
+            markerOptions.title(c.getString(0));
+            mMap.addMarker(markerOptions);
+        }
+        if (position != null) {
+            CameraUpdate cameraPosition = CameraUpdateFactory.newLatLng(position);
+            mMap.animateCamera(cameraPosition);
+        }
     }
 }
