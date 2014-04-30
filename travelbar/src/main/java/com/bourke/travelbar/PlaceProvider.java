@@ -7,7 +7,6 @@ import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
-import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -46,6 +45,7 @@ public class PlaceProvider extends ContentProvider {
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
                         String sortOrder) {
         MatrixCursor cursor = null;
+        String response;
 
         switch(mUriMatcher.match(uri)) {
             case SUGGESTIONS:
@@ -56,10 +56,7 @@ public class PlaceProvider extends ContentProvider {
                 });
 
                 // Get Places from Google Places API
-                String response = getPlaces(selectionArgs);
-                if (BuildConfig.DEBUG) {
-                    Log.d(TAG, response);
-                }
+                response = getPlaces(selectionArgs);
 
                 try {
                     JSONObject json = new JSONObject(response);
@@ -83,7 +80,48 @@ public class PlaceProvider extends ContentProvider {
                 break;
 
             case SEARCH:
-                // TODO
+                // Define a cursor object with columns description, lat and lng
+                cursor = new MatrixCursor(new String[] {
+                        "description",
+                        "lat",
+                        "lng"
+                });
+
+                // Get Places from Google Places API
+                response = getPlaces(selectionArgs);
+
+                try {
+                    JSONObject json = new JSONObject(response);
+                    JSONArray predictions = json.getJSONArray("predictions");
+
+                    // Finding latitude and longitude for each place using Google Places Details API
+                    for (int i=0; i < predictions.length(); i++) {
+                        JSONObject prediction = predictions.getJSONObject(i);
+
+                        String placeReference = prediction.getString("reference");
+                        String placeDetailsJson = getPlaceDetails(placeReference);
+                        JSONObject placeDetails = new JSONObject(placeDetailsJson);
+
+                        String placeDescription = prediction.getString("description");
+                        String placeLat = placeDetails
+                                .getJSONObject("result")
+                                .getJSONObject("geometry")
+                                .getJSONObject("location").getString("lat");
+                        String placeLon = placeDetails
+                                .getJSONObject("result")
+                                .getJSONObject("geometry")
+                                .getJSONObject("location").getString("lng");
+
+                        // Adding place details to cursor
+                        cursor.addRow(new String[] {
+                                placeDescription,
+                                placeLat,
+                                placeLon
+                        });
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
                 break;
 
             case DETAILS:
