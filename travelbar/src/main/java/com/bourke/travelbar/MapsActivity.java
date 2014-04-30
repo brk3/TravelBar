@@ -62,6 +62,8 @@ public class MapsActivity extends FragmentActivity implements
     private MenuItem mMenuStart;
     private MenuItem mMenuStop;
 
+    private boolean mInitialCenterDone = false;
+
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
@@ -95,18 +97,6 @@ public class MapsActivity extends FragmentActivity implements
     @Override public void onConnected(Bundle bundle) {
         // TODO: they recommend wrapping a boolean here to disable updates if user requests
         mLocationClient.requestLocationUpdates(mLocationRequest, this);
-
-        Location currentLocation = mLocationClient.getLastLocation();
-        if (currentLocation != null) {
-            LatLng latLng = new LatLng(currentLocation.getLatitude(),
-                    currentLocation.getLongitude());
-
-            // Showing the current location in Google Map
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-
-            // Zoom in the Google Map
-            mMap.animateCamera(CameraUpdateFactory.zoomTo(10));
-        }
     }
 
     @Override public void onDisconnected() {
@@ -144,7 +134,13 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override public void onLocationChanged(Location location) {
-        // Not used
+        // Center on users location on startup, but don't continue to recenter the camera on every
+        // subsequent location update
+        if (!mInitialCenterDone) {
+            LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
+            mInitialCenterDone = true;
+        }
     }
 
     @Override public void onMapClick(LatLng latLng) {
