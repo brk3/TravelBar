@@ -17,6 +17,7 @@ import android.text.SpannableString;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.Window;
 import android.widget.SearchView;
 import android.widget.Toast;
 
@@ -29,15 +30,20 @@ import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MapsActivity extends FragmentActivity implements
         GooglePlayServicesClient.ConnectionCallbacks,
         GooglePlayServicesClient.OnConnectionFailedListener,
         LocationListener,
         GoogleMap.OnMapClickListener,
+        GoogleMap.OnMarkerClickListener,
         LoaderManager.LoaderCallbacks<Cursor> {
 
     private static final String TAG = "TravelBar/MapsActivity";
@@ -53,6 +59,9 @@ public class MapsActivity extends FragmentActivity implements
 
     private GoogleMap mMap;
 
+    // TODO: persist
+    private List<Marker> mMarkers = new ArrayList<Marker>();
+
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
 
@@ -63,6 +72,17 @@ public class MapsActivity extends FragmentActivity implements
     private MenuItem mMenuStop;
 
     private boolean mInitialCenterDone = false;
+
+    @Override public boolean onMarkerClick(Marker marker) {
+        for (Marker m : mMarkers) {
+            m.setIcon(BitmapDescriptorFactory.defaultMarker());
+        }
+
+        marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
+        mDestination = marker.getPosition();
+
+        return false;
+    }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -104,6 +124,8 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override public void onConnectionFailed(ConnectionResult connectionResult) {
+        setProgressBarIndeterminateVisibility(false);
+
         /*
          * Google Play services can resolve some errors it detects.
          * If the error has a resolution, try sending an Intent to
@@ -137,6 +159,8 @@ public class MapsActivity extends FragmentActivity implements
         // Center on users location on startup, but don't continue to recenter the camera on every
         // subsequent location update
         if (!mInitialCenterDone) {
+            setProgressBarIndeterminateVisibility(false);
+
             LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
             mInitialCenterDone = true;
@@ -144,13 +168,17 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override public void onMapClick(LatLng latLng) {
-        if (mDestinationMarker != null) {
-            mDestinationMarker.remove();
+        for (Marker m : mMarkers) {
+            m.remove();
         }
+        mMarkers.clear();
 
         // TODO: persist for rotate and other state change
-        mDestinationMarker = mMap.addMarker(new MarkerOptions().position(latLng));
+        Marker marker = mMap.addMarker(new MarkerOptions().position(latLng));
+        marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
+        mDestinationMarker = marker;
         mDestination = latLng;
+        mMarkers.add(marker);
 
         // If the service is already started, update it with an event
         DestinationChangedEvent event = new DestinationChangedEvent(latLng.latitude,
@@ -160,6 +188,8 @@ public class MapsActivity extends FragmentActivity implements
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 
         setContentView(R.layout.activity_maps);
         setUpMapIfNeeded();
@@ -190,6 +220,7 @@ public class MapsActivity extends FragmentActivity implements
     @Override protected void onStart() {
         super.onStart();
         // Connect the client.
+        setProgressBarIndeterminateVisibility(true);
         mLocationClient.connect();
     }
 
@@ -288,6 +319,7 @@ public class MapsActivity extends FragmentActivity implements
     private void setUpMap() {
         mMap.setMyLocationEnabled(true);
         mMap.setOnMapClickListener(this);
+        mMap.setOnMarkerClickListener(this);
     }
 
     private void startProgressBarService() {
@@ -337,18 +369,19 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     private void showLocations(Cursor c) {
-        MarkerOptions markerOptions;
         LatLng position = null;
 
         mMap.clear();
+        mMarkers.clear();
 
         while (c.moveToNext()) {
-            markerOptions = new MarkerOptions();
+            MarkerOptions markerOptions = new MarkerOptions();
             position = new LatLng(Double.parseDouble(c.getString(1)),
                     Double.parseDouble(c.getString(2)));
             markerOptions.position(position);
             markerOptions.title(c.getString(0));
-            mMap.addMarker(markerOptions);
+            Marker marker = mMap.addMarker(markerOptions);
+            mMarkers.add(marker);
         }
         if (position != null) {
             CameraUpdate cameraPosition = CameraUpdateFactory.newLatLng(position);

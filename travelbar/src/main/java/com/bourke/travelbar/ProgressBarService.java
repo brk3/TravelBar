@@ -40,8 +40,6 @@ public class ProgressBarService extends Service implements
     private WindowManager windowManager;
     private ProgressBar mProgressBar;
 
-    private int mProgressStatus = 0;
-
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
 
@@ -187,21 +185,21 @@ public class ProgressBarService extends Service implements
 
         float distanceRemaining = currentLocation.distanceTo(mDestination);
 
-        mProgressStatus = (int) ((distanceRemaining / mTotalDistance) * 100);
-        mProgressStatus = Math.abs(mProgressStatus - 100);
+        int progressStatus = (int) ((distanceRemaining / mTotalDistance) * 100);
+        progressStatus = Math.abs(progressStatus - 100);
 
         // Update the progress bar smoothly using ObjectAnimator
-        ObjectAnimator animation = ObjectAnimator.ofInt(mProgressBar, "progress", mProgressStatus);
+        ObjectAnimator animation = ObjectAnimator.ofInt(mProgressBar, "progress", progressStatus);
         animation.setDuration(500); // 0.5 second
         animation.setInterpolator(new LinearInterpolator());
         animation.start();
 
-        if (mProgressStatus >= 90) {
+        if (progressStatus >= 90) {
             popArrivalNotification();
             mLocationClient.disconnect();
-        } else if (mProgressStatus >= 80) {
+        } else if (progressStatus >= 80) {
             mProgressBar.getProgressDrawable().setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN);
-        } else if (mProgressStatus >= 60) {
+        } else if (progressStatus >= 60) {
             mProgressBar.getProgressDrawable().setColorFilter(Color.YELLOW, PorterDuff.Mode.SRC_IN);
         } else {
             mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
@@ -212,7 +210,7 @@ public class ProgressBarService extends Service implements
             Log.d(TAG, "Destination: " + mDestination);
             Log.d(TAG, "Total distance (metres): " + mTotalDistance);
             Log.d(TAG, "Distance remaining (meters): " + distanceRemaining);
-            Log.d(TAG, "Distance complete (percentage): " + mProgressStatus);
+            Log.d(TAG, "Distance complete (percentage): " + progressStatus);
         }
     }
 
