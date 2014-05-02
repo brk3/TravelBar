@@ -125,7 +125,32 @@ public class PlaceProvider extends ContentProvider {
                 break;
 
             case DETAILS:
-                // TODO
+                cursor = new MatrixCursor(new String[] {
+                        "description",
+                        "lat",
+                        "lng"
+                });
+
+                response = getPlaceDetails(selectionArgs[0]);
+
+                try {
+                    JSONObject json = new JSONObject(response);
+                    JSONObject result = json.getJSONObject("result");
+
+                    String formattedAddress = result.getString("formatted_address");
+                    String lat = result.getJSONObject("geometry")
+                            .getJSONObject("location").getString("lat");
+                    String lng = result.getJSONObject("geometry")
+                            .getJSONObject("location").getString("lng");
+
+                    cursor.addRow(new String[] {
+                            formattedAddress,
+                            lat,
+                            lng
+                    });
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
                 break;
             }
         return cursor;
