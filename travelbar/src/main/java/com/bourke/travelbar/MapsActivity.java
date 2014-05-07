@@ -17,6 +17,7 @@ import android.text.SpannableString;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.Window;
 import android.widget.SearchView;
 import android.widget.Toast;
@@ -65,11 +66,12 @@ public class MapsActivity extends FragmentActivity implements
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
 
-    private Marker mDestinationMarker;
     private LatLng mDestination;
 
     private MenuItem mMenuStart;
     private MenuItem mMenuStop;
+    private MenuItem mSearchMenuItem;
+    private SearchView mSearchView;
 
     private boolean mInitialCenterDone = false;
 
@@ -124,8 +126,6 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override public void onConnectionFailed(ConnectionResult connectionResult) {
-        setProgressBarIndeterminateVisibility(false);
-
         /*
          * Google Play services can resolve some errors it detects.
          * If the error has a resolution, try sending an Intent to
@@ -159,8 +159,6 @@ public class MapsActivity extends FragmentActivity implements
         // Center on users location on startup, but don't continue to recenter the camera on every
         // subsequent location update
         if (!mInitialCenterDone) {
-            setProgressBarIndeterminateVisibility(false);
-
             LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
             mInitialCenterDone = true;
@@ -176,7 +174,6 @@ public class MapsActivity extends FragmentActivity implements
         // TODO: persist for rotate and other state change
         Marker marker = mMap.addMarker(new MarkerOptions().position(latLng));
         marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
-        mDestinationMarker = marker;
         mDestination = latLng;
         mMarkers.add(marker);
 
@@ -220,7 +217,6 @@ public class MapsActivity extends FragmentActivity implements
     @Override protected void onStart() {
         super.onStart();
         // Connect the client.
-        setProgressBarIndeterminateVisibility(true);
         mLocationClient.connect();
     }
 
@@ -249,8 +245,17 @@ public class MapsActivity extends FragmentActivity implements
 
         // Associate searchable configuration with the SearchView
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
-        SearchView searchView = (SearchView) menu.findItem(R.id.search).getActionView();
-        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        mSearchMenuItem = (MenuItem) menu.findItem(R.id.search);
+        mSearchView = (SearchView) mSearchMenuItem.getActionView();
+        mSearchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        mSearchView.setOnQueryTextFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean queryTextFocused) {
+                if (!queryTextFocused) {
+                    hideSearchView();
+                }
+            }
+        });
 
         return super.onCreateOptionsMenu(menu);
     }
@@ -359,12 +364,14 @@ public class MapsActivity extends FragmentActivity implements
     private void doSearch(String query) {
         Bundle data = new Bundle();
         data.putString("query", query);
+        hideSearchView();
         getLoaderManager().restartLoader(LOADER_SEARCH, data, this);
     }
 
     private void getPlace(String query){
         Bundle data = new Bundle();
         data.putString("query", query);
+        hideSearchView();
         getLoaderManager().restartLoader(LOADER_DETAILS, data, this);
     }
 
@@ -387,5 +394,10 @@ public class MapsActivity extends FragmentActivity implements
             CameraUpdate cameraPosition = CameraUpdateFactory.newLatLng(position);
             mMap.animateCamera(cameraPosition);
         }
+    }
+
+    private void hideSearchView() {
+        mSearchMenuItem.collapseActionView();
+        mSearchView.setQuery("", false);
     }
 }
