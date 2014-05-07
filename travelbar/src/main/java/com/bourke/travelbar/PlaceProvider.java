@@ -207,7 +207,9 @@ public class PlaceProvider extends ContentProvider {
             data = sb.toString();
             br.close();
         } finally {
-            in.close();
+            if (in != null) {
+                in.close();
+            }
             urlConnection.disconnect();
         }
 
