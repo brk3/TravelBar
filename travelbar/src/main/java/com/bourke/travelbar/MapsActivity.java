@@ -303,9 +303,11 @@ public class MapsActivity extends FragmentActivity implements
             case R.id.action_start:
                 if (mLocationClient.isConnected()) {
                     if (mDestination != null) {
-                        startProgressBarService();
                         mMenuStart.setVisible(false);
                         mMenuStop.setVisible(true);
+
+                        startProgressBarService();
+                        hideApp();
                     } else {
                         Toast.makeText(this, "First tap the map to set a location",
                                 Toast.LENGTH_LONG).show();
@@ -462,5 +464,13 @@ public class MapsActivity extends FragmentActivity implements
     private void setDestination(Marker marker) {
         mDestination = marker.getPosition();
         marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
+    }
+
+    // Return to homescreen without finishing the app
+    private void hideApp() {
+        Intent startMain = new Intent(Intent.ACTION_MAIN);
+        startMain.addCategory(Intent.CATEGORY_HOME);
+        startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(startMain);
     }
 }
