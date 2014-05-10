@@ -272,7 +272,14 @@ public class MapsActivity extends FragmentActivity implements
 
         mMenuStart = menu.findItem(R.id.action_start);
         mMenuStop = menu.findItem(R.id.action_stop);
-        mMenuStop.setVisible(false);
+
+        if (ProgressBarService.RUNNING) {
+            mMenuStop.setVisible(true);
+            mMenuStart.setVisible(false);
+        } else {
+            mMenuStop.setVisible(false);
+            mMenuStart.setVisible(true);
+        }
 
         // Associate searchable configuration with the SearchView
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);

@@ -48,6 +48,8 @@ public class ProgressBarService extends Service implements
 
     private float mTotalDistance;
 
+    public static boolean RUNNING = false;
+
     public static final String STARTING_LAT =
             "com.bourke.travelbar.ProgressBarService.STARTING_LAT";
     public static final String STARTING_LON =
@@ -67,6 +69,8 @@ public class ProgressBarService extends Service implements
 
     @Override public void onCreate() {
         super.onCreate();
+
+        RUNNING = true;
 
         BusProvider.getInstance().register(this);
 
@@ -149,7 +153,11 @@ public class ProgressBarService extends Service implements
         // Disconnecting the client invalidates it.
         mLocationClient.disconnect();
 
-        if (mProgressBar != null) windowManager.removeView(mProgressBar);
+        if (mProgressBar != null) {
+            windowManager.removeView(mProgressBar);
+        }
+
+        RUNNING = false;
     }
 
     @Override public void onConnected(Bundle bundle) {
