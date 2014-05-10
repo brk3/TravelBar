@@ -67,7 +67,7 @@ public class MapsActivity extends FragmentActivity implements
     private GoogleMap mMap;
 
     // Keep track of all markers on the screen
-    private List<Marker> mMarkers = new ArrayList<Marker>();
+    private final List<Marker> mMarkers = new ArrayList<Marker>();
 
     private LocationClient mLocationClient;
     private LocationRequest mLocationRequest;
