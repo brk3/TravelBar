@@ -27,7 +27,6 @@ import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -58,9 +57,16 @@ public class MapsActivity extends FragmentActivity implements
     // Started to query ContentProvider for details on a specific place
     private final static int LOADER_DETAILS = 1;
 
+    // Keys for persisting state
+    private final static String KEY_DEST_LAT = "com.bourke.travelbar.MapsActivity.KEY_DEST_LAT";
+    private final static String KEY_DEST_LON = "com.bourke.travelbar.MapsActivity.KEY_DEST_LON";
+
+    private final static String KEY_CENTER_DONE =
+            "com.bourke.travelbar.MapsActivity.KEY_CENTER_DONE";
+
     private GoogleMap mMap;
 
-    // TODO: persist
+    // Keep track of all markers on the screen
     private List<Marker> mMarkers = new ArrayList<Marker>();
 
     private LocationClient mLocationClient;
@@ -76,14 +82,42 @@ public class MapsActivity extends FragmentActivity implements
     private boolean mInitialCenterDone = false;
 
     @Override public boolean onMarkerClick(Marker marker) {
+        // Reset color for current markers
         for (Marker m : mMarkers) {
             m.setIcon(BitmapDescriptorFactory.defaultMarker());
         }
 
-        marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
-        mDestination = marker.getPosition();
+        setDestination(marker);
 
         return false;
+    }
+
+    @Override public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        if (mDestination != null) {
+            outState.putDouble(KEY_DEST_LAT, mDestination.latitude);
+            outState.putDouble(KEY_DEST_LON, mDestination.longitude);
+        }
+
+        outState.putBoolean(KEY_CENTER_DONE, mInitialCenterDone);
+    }
+
+    @Override public void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+
+        if (savedInstanceState == null) {
+            return;
+        }
+
+        if (mMap != null) {
+            double lat = savedInstanceState.getDouble(KEY_DEST_LAT);
+            double lon = savedInstanceState.getDouble(KEY_DEST_LON);
+
+            setDestination(new LatLng(lat, lon));
+        }
+
+        mInitialCenterDone = savedInstanceState.getBoolean(KEY_CENTER_DONE);
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -106,14 +140,13 @@ public class MapsActivity extends FragmentActivity implements
         return cLoader;
     }
 
-    @Override
-    public void onLoadFinished(Loader<Cursor> arg0, Cursor c) {
+    @Override public void onLoadFinished(Loader<Cursor> arg0, Cursor c) {
+        setProgressBarIndeterminateVisibility(false);
         showLocations(c);
     }
 
-    @Override
-    public void onLoaderReset(Loader<Cursor> arg0) {
-        // Not used
+    @Override public void onLoaderReset(Loader<Cursor> arg0) {
+        setProgressBarIndeterminateVisibility(false);
     }
 
     @Override public void onConnected(Bundle bundle) {
@@ -166,16 +199,14 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override public void onMapClick(LatLng latLng) {
-        for (Marker m : mMarkers) {
-            m.remove();
-        }
+        // Clear all markers
+        mMap.clear();
         mMarkers.clear();
 
-        // TODO: persist for rotate and other state change
-        Marker marker = mMap.addMarker(new MarkerOptions().position(latLng));
-        marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
-        mDestination = latLng;
-        mMarkers.add(marker);
+        // Clear intent so old searches don't restart on rotate
+        setIntent(null);
+
+        setDestination(latLng);
 
         // If the service is already started, update it with an event
         DestinationChangedEvent event = new DestinationChangedEvent(latLng.latitude,
@@ -245,7 +276,7 @@ public class MapsActivity extends FragmentActivity implements
 
         // Associate searchable configuration with the SearchView
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
-        mSearchMenuItem = (MenuItem) menu.findItem(R.id.search);
+        mSearchMenuItem = menu.findItem(R.id.search);
         mSearchView = (SearchView) mSearchMenuItem.getActionView();
         mSearchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
         mSearchView.setOnQueryTextFocusChangeListener(new View.OnFocusChangeListener() {
@@ -364,14 +395,20 @@ public class MapsActivity extends FragmentActivity implements
     private void doSearch(String query) {
         Bundle data = new Bundle();
         data.putString("query", query);
-        hideSearchView();
+        if (mSearchView != null) {
+            hideSearchView();
+        }
+        setProgressBarIndeterminateVisibility(true);
         getLoaderManager().restartLoader(LOADER_SEARCH, data, this);
     }
 
     private void getPlace(String query){
         Bundle data = new Bundle();
         data.putString("query", query);
-        hideSearchView();
+        if (mSearchView != null) {
+            hideSearchView();
+        }
+        setProgressBarIndeterminateVisibility(true);
         getLoaderManager().restartLoader(LOADER_DETAILS, data, this);
     }
 
@@ -387,17 +424,36 @@ public class MapsActivity extends FragmentActivity implements
                     Double.parseDouble(c.getString(2)));
             markerOptions.position(position);
             markerOptions.title(c.getString(0));
-            Marker marker = mMap.addMarker(markerOptions);
-            mMarkers.add(marker);
+            Marker m = mMap.addMarker(markerOptions);
+            mMarkers.add(m);
         }
+
         if (position != null) {
-            CameraUpdate cameraPosition = CameraUpdateFactory.newLatLng(position);
-            mMap.animateCamera(cameraPosition);
+            mMap.animateCamera(CameraUpdateFactory.newLatLng(position));
+        }
+
+        if (mDestination != null) {
+            setDestination(mDestination);
         }
     }
 
     private void hideSearchView() {
         mSearchMenuItem.collapseActionView();
         mSearchView.setQuery("", false);
+    }
+
+    private void setDestination(LatLng latLng) {
+        MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(latLng);
+        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(
+                BitmapDescriptorFactory.HUE_YELLOW));
+        Marker marker = mMap.addMarker(markerOptions);
+        mDestination = latLng;
+        mMarkers.add(marker);
+    }
+
+    private void setDestination(Marker marker) {
+        mDestination = marker.getPosition();
+        marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
     }
 }
