@@ -85,6 +85,7 @@ public class ProgressBarService extends Service implements
         mProgressBar = new ProgressBar(getBaseContext(), null,
                 android.R.attr.progressBarStyleHorizontal);
         mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
+        mProgressBar.setProgress(100);
 
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -195,6 +196,10 @@ public class ProgressBarService extends Service implements
 
         int progressStatus = (int) ((distanceRemaining / mTotalDistance) * 100);
         progressStatus = Math.abs(progressStatus - 100);
+
+        if (progressStatus <= 3) {
+            progressStatus = 3;
+        }
 
         // Update the progress bar smoothly using ObjectAnimator
         ObjectAnimator animation = ObjectAnimator.ofInt(mProgressBar, "progress", progressStatus);
