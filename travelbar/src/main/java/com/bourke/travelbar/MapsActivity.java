@@ -60,7 +60,6 @@ public class MapsActivity extends FragmentActivity implements
     // Keys for persisting state
     private final static String KEY_DEST_LAT = "com.bourke.travelbar.MapsActivity.KEY_DEST_LAT";
     private final static String KEY_DEST_LON = "com.bourke.travelbar.MapsActivity.KEY_DEST_LON";
-
     private final static String KEY_CENTER_DONE =
             "com.bourke.travelbar.MapsActivity.KEY_CENTER_DONE";
 
@@ -239,7 +238,18 @@ public class MapsActivity extends FragmentActivity implements
 
     @Override protected void onResume() {
         super.onResume();
+
         setUpMapIfNeeded();
+
+        if (mMenuStart != null && mMenuStop != null) {
+            if (ProgressBarService.RUNNING) {
+                mMenuStop.setVisible(true);
+                mMenuStart.setVisible(false);
+            } else {
+                mMenuStop.setVisible(false);
+                mMenuStart.setVisible(true);
+            }
+        }
     }
 
     /*
@@ -318,9 +328,7 @@ public class MapsActivity extends FragmentActivity implements
                 break;
 
             case R.id.action_stop:
-                stopService(new Intent(this, ProgressBarService.class));
-                mMenuStop.setVisible(false);
-                mMenuStart.setVisible(true);
+                stopService();
                 break;
         }
 
@@ -393,7 +401,10 @@ public class MapsActivity extends FragmentActivity implements
         actionBar.setIcon(R.drawable.ic_actionbar);
     }
 
-    private void handleIntent(Intent intent){
+    private void handleIntent(Intent intent) {
+        if (intent == null || intent.getAction() == null) {
+            return;
+        }
         if (intent.getAction().equals(Intent.ACTION_SEARCH)){
             doSearch(intent.getStringExtra(SearchManager.QUERY));
         } else if(intent.getAction().equals(Intent.ACTION_VIEW)){
@@ -472,5 +483,11 @@ public class MapsActivity extends FragmentActivity implements
         startMain.addCategory(Intent.CATEGORY_HOME);
         startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(startMain);
+    }
+
+    private void stopService() {
+        stopService(new Intent(this, ProgressBarService.class));
+        mMenuStop.setVisible(false);
+        mMenuStart.setVisible(true);
     }
 }

@@ -48,6 +48,8 @@ public class ProgressBarService extends Service implements
 
     private float mTotalDistance;
 
+    private BroadcastReceiver mStopReceiver;
+
     public static boolean RUNNING = false;
 
     public static final String STARTING_LAT =
@@ -60,7 +62,7 @@ public class ProgressBarService extends Service implements
     public static final String DESTINATION_LON =
             "com.bourke.travelbar.ProgressBarService.DESTINATION_LON";
 
-    public static final int NOTIFICATION_ARRIVED = 0;
+    public static final int NOTIFICATION_ID = 0;
 
     @Override public IBinder onBind(Intent intent) {
         // Not used
@@ -85,7 +87,6 @@ public class ProgressBarService extends Service implements
         mProgressBar = new ProgressBar(getBaseContext(), null,
                 android.R.attr.progressBarStyleHorizontal);
         mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
-        mProgressBar.setProgress(100);
 
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -100,6 +101,8 @@ public class ProgressBarService extends Service implements
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         windowManager.addView(mProgressBar, params);
+
+        showRunningNotification("Initialising " + getString(R.string.app_name));
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -158,6 +161,19 @@ public class ProgressBarService extends Service implements
             windowManager.removeView(mProgressBar);
         }
 
+        if (mStopReceiver != null) {
+            try {
+                unregisterReceiver(mStopReceiver);
+            } catch (IllegalArgumentException e) {
+                // http://stackoverflow.com/a/3568906/663370
+            }
+        }
+
+        // Clear any notifications we've shown
+        NotificationManager mNotificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager.cancelAll();
+
         RUNNING = false;
     }
 
@@ -197,6 +213,7 @@ public class ProgressBarService extends Service implements
         int progressStatus = (int) ((distanceRemaining / mTotalDistance) * 100);
         progressStatus = Math.abs(progressStatus - 100);
 
+        // Set a min > 0 to make the bar more visible when empty
         if (progressStatus <= 3) {
             progressStatus = 3;
         }
@@ -208,7 +225,7 @@ public class ProgressBarService extends Service implements
         animation.start();
 
         if (progressStatus >= 90) {
-            popArrivalNotification();
+            showArrivalNotification();
             mLocationClient.disconnect();
         } else if (progressStatus >= 80) {
             mProgressBar.getProgressDrawable().setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN);
@@ -216,6 +233,11 @@ public class ProgressBarService extends Service implements
             mProgressBar.getProgressDrawable().setColorFilter(Color.YELLOW, PorterDuff.Mode.SRC_IN);
         } else {
             mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
+        }
+
+        if (progressStatus <= 90) {
+            // Update the ongoing notification
+            showRunningNotification(progressStatus + "% journey completed");
         }
 
         if (BuildConfig.DEBUG) {
@@ -234,7 +256,6 @@ public class ProgressBarService extends Service implements
                         .setContentTitle("Yeehaw!")
                         .setContentText("You are arriving at your destination")
                         .setAutoCancel(true)
-                        .setPriority(Notification.PRIORITY_HIGH)
                         .setDefaults(Notification.DEFAULT_ALL);
 
         registerReceiver(new BroadcastReceiver() {
@@ -251,6 +272,67 @@ public class ProgressBarService extends Service implements
 
         NotificationManager mNotificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        mNotificationManager.notify(NOTIFICATION_ARRIVED, builder.build());
+        mNotificationManager.notify(NOTIFICATION_ID, builder.build());
+    }
+
+    private PendingIntent getStopServicePendingIntent() {
+        PendingIntent stopIntent = PendingIntent.getBroadcast(this, 0,
+                new Intent("com.bourke.ProgressBarService.STOP_SERVICE"),
+                PendingIntent.FLAG_UPDATE_CURRENT);
+
+        mStopReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                unregisterReceiver(this);
+                stopSelf();
+            }
+        };
+        registerReceiver(mStopReceiver,
+                new IntentFilter("com.bourke.ProgressBarService.STOP_SERVICE"));
+
+        return stopIntent;
+    }
+
+    private void showRunningNotification(String titleText) {
+        PendingIntent peStopService = getStopServicePendingIntent();
+
+        PendingIntent peMapsActivity = PendingIntent.getActivity(this, 0,
+                new Intent(this, MapsActivity.class), 0);
+
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this)
+                        .setSmallIcon(R.drawable.ic_notify)
+                        .setContentTitle(titleText)
+                        .setAutoCancel(false)
+                        .setOngoing(true)
+                        .addAction(R.drawable.ic_action_stop_light,
+                                getString(R.string.stop_tracking), peStopService)
+                        .setContentIntent(peMapsActivity);
+
+        NotificationManager mNotificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager.notify(NOTIFICATION_ID, builder.build());
+    }
+
+    private void showArrivalNotification() {
+        PendingIntent peStopService = getStopServicePendingIntent();
+
+        PendingIntent peMapsActivity = PendingIntent.getActivity(this, 0,
+                new Intent(this, MapsActivity.class), 0);
+
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this)
+                        .setSmallIcon(R.drawable.ic_notify)
+                        .setTicker("Yeehaw!")  // TODO: could have multiple strings here
+                        .setContentTitle("You are arriving at your destination!")
+                        .setAutoCancel(true)
+                        .setVibrate(new long[]{2000, 2000})
+                        .setDefaults(Notification.DEFAULT_ALL)
+                        .addAction(R.drawable.ic_action_stop_light,
+                                getString(R.string.stop_tracking), peStopService)
+                        .setContentIntent(peMapsActivity);
+
+        NotificationManager mNotificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager.notify(NOTIFICATION_ID, builder.build());
     }
 }
