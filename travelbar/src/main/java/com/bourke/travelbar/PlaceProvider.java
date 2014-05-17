@@ -4,9 +4,13 @@ import android.app.SearchManager;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.UriMatcher;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.Bundle;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -221,13 +225,14 @@ public class PlaceProvider extends ContentProvider {
         String reference = "reference=" + ref;
         String sensor = "sensor=false";
         String output = "json";
+        String browserKey = getBrowserKey();
         String parameters = new StringBuilder()
                 .append(reference)
                 .append("&")
                 .append(sensor)
                 .append("&")
                 .append("key=")
-                .append(Constants.API_BROWSER_KEY).toString();
+                .append(browserKey).toString();
 
         // Building the url to the web service
         return new StringBuilder()
@@ -246,6 +251,7 @@ public class PlaceProvider extends ContentProvider {
         String sensor = "sensor=false";
         String types = "types=geocode";
         String output = "json";
+        String browserKey = getBrowserKey();
         String parameters = new StringBuilder()
                 .append(qry)
                 .append("&")
@@ -254,7 +260,7 @@ public class PlaceProvider extends ContentProvider {
                 .append(sensor)
                 .append("&")
                 .append("key=")
-                .append(Constants.API_BROWSER_KEY).toString();
+                .append(browserKey).toString();
 
         return new StringBuilder()
                 .append("https://maps.googleapis.com/maps/api/place/autocomplete/")
@@ -299,5 +305,20 @@ public class PlaceProvider extends ContentProvider {
         uriMatcher.addURI(AUTHORITY, "details", DETAILS);
 
         return uriMatcher;
+    }
+
+    private String getBrowserKey() {
+        String browserKey = "";
+        try {
+            ApplicationInfo ai = getContext().getPackageManager().getApplicationInfo(
+                    getContext().getPackageName(), PackageManager.GET_META_DATA);
+            Bundle bundle = ai.metaData;
+            browserKey = bundle.getString("com.google.android.maps.v2.BROWSER_KEY");
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Failed to load meta-data, NameNotFound: " + e.getMessage());
+        } catch (NullPointerException e) {
+            Log.e(TAG, "Failed to load meta-data, NullPointer: " + e.getMessage());
+        }
+        return browserKey;
     }
 }

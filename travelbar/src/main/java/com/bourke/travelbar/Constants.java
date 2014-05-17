@@ -7,6 +7,4 @@ public class Constants {
 
     // A fast frequency ceiling in milliseconds
     public static final long FASTEST_INTERVAL = 1000;
-
-    public static final String API_BROWSER_KEY = "***REMOVED***";
 }
