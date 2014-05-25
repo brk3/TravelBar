@@ -50,6 +50,10 @@ public class ProgressBarService extends Service implements
 
     private BroadcastReceiver mStopReceiver;
 
+    private double mRed = 0;
+    private double mGreen = 255;
+    private double mBlue = 0;
+
     public static boolean RUNNING = false;
 
     public static final String STARTING_LAT =
@@ -224,20 +228,20 @@ public class ProgressBarService extends Service implements
         animation.setInterpolator(new LinearInterpolator());
         animation.start();
 
+        // Update the ongoing notification
+        showRunningNotification(progressStatus + "% journey completed");
+
+        mRed = Math.min(255.0 * 2 * progressStatus / 100, 255);
+        if (mRed == 255) {
+            mGreen = Math.abs(255 - (255.0 / progressStatus) * 100);
+        }
+        mProgressBar.getProgressDrawable()
+                .setColorFilter(Color.rgb((int) mRed, (int) mGreen, (int) mBlue),
+                        PorterDuff.Mode.SRC_IN);
+
         if (progressStatus >= 90) {
             showArrivalNotification();
             mLocationClient.disconnect();
-        } else if (progressStatus >= 80) {
-            mProgressBar.getProgressDrawable().setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN);
-        } else if (progressStatus >= 60) {
-            mProgressBar.getProgressDrawable().setColorFilter(Color.YELLOW, PorterDuff.Mode.SRC_IN);
-        } else {
-            mProgressBar.getProgressDrawable().setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN);
-        }
-
-        if (progressStatus <= 90) {
-            // Update the ongoing notification
-            showRunningNotification(progressStatus + "% journey completed");
         }
 
         if (BuildConfig.DEBUG) {
@@ -247,32 +251,6 @@ public class ProgressBarService extends Service implements
             Log.d(TAG, "Distance remaining (meters): " + distanceRemaining);
             Log.d(TAG, "Distance complete (percentage): " + progressStatus);
         }
-    }
-
-    private void popArrivalNotification() {
-        NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(this)
-                        .setSmallIcon(R.drawable.ic_notify)
-                        .setContentTitle("Yeehaw!")
-                        .setContentText("You are arriving at your destination")
-                        .setAutoCancel(true)
-                        .setDefaults(Notification.DEFAULT_ALL);
-
-        registerReceiver(new BroadcastReceiver() {
-            @Override public void onReceive(Context context, Intent intent) {
-                unregisterReceiver(this);
-                stopSelf();
-            }
-        }, new IntentFilter("com.bourke.ProgressBarService.STOP_SERVICE"));
-
-        PendingIntent contentIntent = PendingIntent.getBroadcast(this, 0,
-                new Intent("com.bourke.ProgressBarService.STOP_SERVICE"),
-                PendingIntent.FLAG_UPDATE_CURRENT);
-        builder.setContentIntent(contentIntent);
-
-        NotificationManager mNotificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        mNotificationManager.notify(NOTIFICATION_ID, builder.build());
     }
 
     private PendingIntent getStopServicePendingIntent() {
@@ -322,7 +300,7 @@ public class ProgressBarService extends Service implements
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(this)
                         .setSmallIcon(R.drawable.ic_notify)
-                        .setTicker("Yeehaw!")  // TODO: could have multiple strings here
+                        .setTicker("Yeehaw!")
                         .setContentTitle("You are arriving at your destination!")
                         .setAutoCancel(true)
                         .setVibrate(new long[]{2000, 2000})
